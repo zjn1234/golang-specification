@@ -6,3 +6,5 @@ golang语言规范
 
 - [Package](https://github.com/zjn1234/golang-specification/blob/master/Package.md)
 - [Program initialization and execution](https://github.com/zjn1234/golang-specification/blob/master/Program_Initialization_Execution.md)
+
+- [Statement](https://github.com/zjn1234/golang-specification/blob/master/Statement.md)
