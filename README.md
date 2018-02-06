@@ -14,3 +14,6 @@ golang语言规范
 - [Constants](https://github.com/zjn1234/golang-specification/blob/master/Constants.md)
 
 - [Blocks](https://github.com/zjn1234/golang-specification/blob/master/Blocks.md)
+- [Run-time panics](https://github.com/zjn1234/golang-specification/blob/master/Run-time-panics.md)
+
+- [Types](https://github.com/zjn1234/golang-specification/blob/master/Types.md)
