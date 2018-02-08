@@ -17,3 +17,6 @@ golang语言规范
 - [Run-time panics](https://github.com/zjn1234/golang-specification/blob/master/Run-time-panics.md)
 
 - [Types](https://github.com/zjn1234/golang-specification/blob/master/Types.md)
+- [Variables](https://github.com/zjn1234/golang-specification/blob/master/Variables.md)
+
+- [Lexical elements](https://github.com/zjn1234/golang-specification/blob/master/Lexical-elements.md)
