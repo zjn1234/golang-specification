@@ -20,3 +20,4 @@ golang语言规范
 - [Variables](https://github.com/zjn1234/golang-specification/blob/master/Variables.md)
 
 - [Lexical elements](https://github.com/zjn1234/golang-specification/blob/master/Lexical-elements.md)
+- [Properties of types and values](https://github.com/zjn1234/golang-specification/blob/master/Properties_of_types_and_values.md)
