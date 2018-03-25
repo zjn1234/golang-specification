@@ -429,3 +429,98 @@ t[1] == 3
 正如简单slice表达式一样，如果a是一个指向array的指针，a[low:high:max]为(*a)[low:high:max]的缩写。如果切片的操作数是一个array，则该array必须是可寻址的。
 
 索引值在0<=low<=high<=max<=cap(a)的范围内，否则便会超出范围。常量索引值必须是非负数并且可以被一个int类型的值所表示;对于array而言，常量索引值必须在范围内。如果多个索引全是常量，则这些索引值必须相互都在范围内。如果索引值在运行时超出了范围，则会发生[run-time panic]
+
+##Type assertions
+对于一个接口类型的表达式x和类型T而言，类型断言的主要表达式如下：
+```
+x.(T)
+```
+该表达式断言x不是nil值并且存储在x中的值类型是T。符号x.(T)并称作类型断言。
+
+更准确的说，如果T不是一个接口类型，x.(T)断言x的动态类型和类型T完全相同。在这种情况下，T必须实现了接口类型x;否则该类型断言无效，因为如果T没有实现接口类型x则x不可能存储T类型的值。如果T是一个接口类型，x.(T)断言x的动态类型实现了接口T。
+
+如果类型断言成功的话，则表达式的值为存储在x中的实际值并且它的类型为T。如果类型断言失败，则会发生runtime panic。换句话说，即使x的动态类型只能在运行时知道，但是在一个正确的程序中，x.(T)的类型就是T。
+
+```
+var x interface{} = 7          // x has dynamic type int and value 7
+i := x.(int)                   // i has type int and value 7
+
+type I interface { m() }
+
+func f(y I) {
+	s := y.(string)        // illegal: string does not implement I (missing method m)
+	r := y.(io.Reader)     // r has type io.Reader and the dynamic type of y must implement both I and io.Reader
+	…
+}
+```
+类型断言被使用于赋值或者特殊形式的初始化语句中。
+
+```
+v, ok = x.(T)
+v, ok := x.(T)
+var v, ok = x.(T)
+var v, ok T1 = x.(T)
+```
+
+上面的类型断言会生成一个额外的没有类型的布尔值。如果断言成功则ok的值是true，如果断言失败则ok的值是false并且v的值是类型T对应的0值。这种情况下是没有panic发生的。
+
+##Calls
+给予一个函数类型F的表达式f，
+```
+f(a1, a2, ... an)
+```
+使用实参a1，a2，... an来调用函数f。除了特殊情况外，实参必须是单值表达式，可以赋值给F的形参类型并且在函数调用前被计算。该函数表达式的类型是F的结果类型。这和方法的调用是相似的，但是方法本身是一个选择器，在该选择器上有一个该方法接收者类型的值。
+
+```
+math.Atan2(x, y)  // function call
+var pt *Point
+pt.Scale(3.5)     // method call with receiver pt
+```
+
+在函数调用中，函数的值和实参以[in the usual order]()的顺序被计算。然后以值的形式传递给函数的形参，最后调用函数开始执行。当被调用函数返回的时候，该被调用 函数的返回参数也是以值的形式被传递到调用者函数。
+
+调用一个值为nil的函数会发生panic
+
+特殊情况，如果函数或者方法g和返回值数量和函数或者方法f的参数数量相同，并且可以相互之间是可以赋值的，则调用f(g(parameters_of_g))将会在调用g后，将g的返回值按顺序绑定到f的形参上。此时，f的函数调用除了包括g函数以外不能包括任何参数，并且g函数必须至少有一个返回值。如果f最后有一个...参数，则在g的返回值被赋值给f的形参后，剩下的返回值会被赋给...形参。
+
+```
+func Split(s string, pos int) (string, string) {
+	return s[0:pos], s[pos:]
+}
+
+func Join(s, t string) string {
+	return s + t
+}
+
+if Join(Split(value, len(value)/2)) != value {
+	log.Panic("test fails")
+}
+```
+如果x的方法集包括m并且参数列表可以被赋值给m的形参列表，则方法调用x.m()便是有效的。如果x是可寻址的并且&x的方法集包括m，则x.m()便是(&x).m()的缩写。
+
+```
+var p Point
+p.Scale(3.5)
+```
+
+不存在明确的方法类型，也不存在方法字面值。
+
+##Passing arguments to ... parameters
+如果f是一个变参函数，f的最后一个形参p的类型是...T，则在f内，p的类型等同于[]T。如果调用f的时候没有p对应的实参，则被传递给p的值为nil。否则，被传递给p的值是一个新的类型为[]T的slice，该slice带有一个新的底层数组，该底层数组的连续元素为实际的参数，这些参数必须可以被赋值给T。该slice的长度和容量便是被限制的p的参数数量，并且可能在每次调用中都是不同的。
+
+给予以下函数调用：
+```
+func Greeting(prefix string, who ...string)
+Greeting("nobody")
+Greeting("hello:", "Joe", "Anna", "Eileen")
+```
+在函数Greeting内，第一次调用时，who的值为nil，第二次调用中值为[]string{"Joe", "Anna", "Eileen"}。
+
+如果最后的参数可赋值给一个类型为[]T的slice，则该参数可以不经改变的被赋值给...T形参，如果实参后面跟了...，在这种情况下没有新的slice被创建。
+
+给予以下slice s和函数调用 ：
+```
+s := []string{"James", "Jasmine"}
+Greeting("goodbye:", s...)
+```
+在Greeting函数内，将会拥有和s的底层数组一样的slice值
