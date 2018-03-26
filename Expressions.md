@@ -524,3 +524,58 @@ s := []string{"James", "Jasmine"}
 Greeting("goodbye:", s...)
 ```
 在Greeting函数内，将会拥有和s的底层数组一样的slice值
+
+##Operators
+操作符将操作数合并成了表达式。
+
+```
+Expression = UnaryExpr | Expression binary_op Expression .
+UnaryExpr  = PrimaryExpr | unary_op UnaryExpr .
+
+binary_op  = "||" | "&&" | rel_op | add_op | mul_op .
+rel_op     = "==" | "!=" | "<" | "<=" | ">" | ">=" .
+add_op     = "+" | "-" | "|" | "^" .
+mul_op     = "*" | "/" | "%" | "<<" | ">>" | "&" | "&^" .
+
+unary_op   = "+" | "-" | "!" | "^" | "*" | "&" | "<-" .****
+```
+
+比较操作在另外的地方讨论。对于其他的二元操作符，操作数的类型必须完全相同，除非操作涉及到了移位或者无类型的常量。对于只涉及常量的操作，请看[constant expressions]()节。
+
+除了移位操作之外，如果一个操作数是无类型的并且剩下的操作数不是无类型的，则该无类型常量将会被转换成其它操作数的类型。
+
+在移位表达式右操作数必须是无符号的整数类型，或者是一个可以被整形数值表示的无符号的常量值。如果一个非常量移位表达式的左操作数是一个没有类型的常量，并且如果该移位表达式可以它的被左操作数单独的替换，则该左操作数会被首先转换成默认的类型。
+
+```
+var s uint = 33
+var i = 1<<s                  // 1 has type int
+var j int32 = 1<<s            // 1 has type int32; j == 0
+var k = uint64(1<<s)          // 1 has type uint64; k == 1<<33
+var m int = 1.0<<s            // 1.0 has type int; m == 0 if ints are 32bits in size
+var n = 1.0<<s == j           // 1.0 has type int32; n == true
+var o = 1<<s == 2<<s          // 1 and 2 have type int; o == true if ints are 32bits in size
+var p = 1<<s == 1<<33         // illegal if ints are 32bits in size: 1 has type int, but 1<<33 overflows int
+var u = 1.0<<s                // illegal: 1.0 has type float64, cannot shift
+var u1 = 1.0<<s != 0          // illegal: 1.0 has type float64, cannot shift
+var u2 = 1<<s != 1.0          // illegal: 1 has type float64, cannot shift
+var v float32 = 1<<s          // illegal: 1 has type float32, cannot shift
+var w int64 = 1.0<<33         // 1.0<<33 is a constant shift expression
+var x = a[1.0<<s]             // 1.0 has type int; x == a[0] if ints are 32bits in size
+var a = make([]byte, 1.0<<s)  // 1.0 has type int; len(a) == 0 if ints are 32bits in size
+```
+
+### Operator precedence
+一元运算符拥有最高的优先级。`++`和`--`操作符形式的语句不是表达式，他们不在操作符的层次之内。语句*p++和(*p)++是一样的。
+
+二元操作符有5种优先级。乘法运算符的优先级最高，紧接着是加法运算符，比较运算符，&&逻辑与运算符和最后的||逻辑或运算符。
+
+相同优先级的二元运算符从左到右依次计算。例如，x/y*z和(x/y)*z是一样的。
+
+```
++x
+23 + 3*x[i]
+x <= f()
+^a >> b
+f() || g()
+x == y+1 && <-chanPtr > 0
+```
