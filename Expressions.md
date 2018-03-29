@@ -579,3 +579,95 @@ x <= f()
 f() || g()
 x == y+1 && <-chanPtr > 0
 ```
+
+## Arithmetic operators
+算术运算符应用于数字值运算，会生成和第一个操作数相同类型的结果。四个标准的算术运算符+，-，*，/应用于整数，符点数和复数运算;+运算也可以应用于字符串运算。按位的逻辑移位和算数移位只适用于整数。
+
+```
++    sum                    integers, floats, complex values, strings
+-    difference             integers, floats, complex values
+*    product                integers, floats, complex values
+/    quotient               integers, floats, complex values
+%    remainder              integers
+
+&    bitwise AND            integers
+|    bitwise OR             integers
+^    bitwise XOR            integers
+&^   bit clear (AND NOT)    integers
+
+<<   left shift             integer << unsigned integer
+>>   right shift            integer >> unsigned integer
+```
+
+###Integer operators
+对于两个整数值x和y而言，整数的商q = x / y，余数r = x % y，他们满足下面的关系：
+```
+x = q*y + r and |r| < |y|
+```
+x / y 结果会向0方向舍入["truncated division"](https://en.wikipedia.org/wiki/Modulo_operation)
+```
+ x     y     x / y     x % y
+ 5     3       1         2
+-5     3      -1        -2
+ 5    -3      -1         2
+-5    -3       1        -2
+```
+该规则的例外情况是，如果被除数x的大小是int所代表类型的负最小值，商值q = x / -1 等于x并且余数r = 0，这是由二进制补码整型溢出导致的。
+```
+			 x, q
+int8                     -128
+int16                  -32768
+int32             -2147483648
+int64    -9223372036854775808
+```
+
+如果除数是一个常量，则它必须非0。如果运行时除数为0,则会发生panic。如果被除数是非负值并且除数是一个2的平方常量，则该除法运算可以由移位运算所替代，计算余数可以由位与运算替代。
+```
+ x     x / 4     x % 4     x >> 2     x & 3
+ 11      2         3         2          3
+-11     -2        -3        -3          1
+```
+移位操作通过移位右操作数所指定的个数来移位左操作数。如果左操作数是一个有符号的，则为算术移位。如果左操作数无符号数，则为逻辑移位。对于移位的个数来说，没有什么最高的上限。移动n位就行人于移动1位移动了n次。结果就是x << 1 和 x*2是相同的;并且x >> 1 和x/2是相同的，但是会向负无穷方向舍入。
+
+对于整型操作数而言，一元操作符+,-和^定义如下：
+```
++x                          is 0 + x
+-x    negation              is 0 - x
+^x    bitwise complement    is m ^ x  with m = "all bits set to 1" for unsigned x
+                                      and  m = -1 for signed x
+```
+
+### Interger overflow
+对于无符号整型值而言，操作符+，-，*和<<都是以2的n次方为模来计算的，其中n是无符号整型值的位宽。不严格的说，一旦溢出发生，则这些无符号整型值操作会忽略高比特位，并且这个时候程序会依赖于"wrap around"
+
+对于有符号的整型数而言，操作符+,-,*,/和<<也会发现溢出并且确切的结果会由该有符号整型数的表示范围，操作符和操作数所决定。这时候的溢出不会发现异常。编译器不能在假设溢出不会发现的情况下来优化代码。例如，编译不可以认为x < x + 1总是正确的。
+
+### Floating-point operators
+对于浮点数和复数而言，+x和x是一样的，而-x是x的相反值。根据IEEE-754标准，浮点数或者复数被0除的结果是不确定的;这时候是否会发现panic是和具体实现相关的。
+
+在具体的实现中，多个浮点数操作可能会被合并成单个融合后的操作，合并操作有可能会跨语句发生，并且个别情况下会生成一个不同于执行和舍入指令所产生的值的值。浮点类型的转换会明确的舍入到目标类型的精度，阻止操作融合会忽略舍入操作。
+
+例如，一些架构会提供一个FMA(融合乘和加)指令，对于x*y+z的计算中，该FMA指令会在不舍入中间结果x*y的情况下计算。下面的例子展示了在什么情况下go程序会使用该指令:
+
+```
+// FMA allowed for computing r, because x*y is not explicitly rounded:
+r  = x*y + z
+r  = z;   r += x*y
+t  = x*y; r = t + z
+*p = x*y; r = *p + z
+r  = x*y + float64(z)
+
+// FMA disallowed for computing r, because it would omit rounding of x*y:
+r  = float64(x*y) + z
+r  = z; r += float64(x*y)
+t  = float64(x*y); r = t + z
+```
+
+###String concatenation
+可以使用+操作符或者+=赋值操作符来连接strings:
+```
+s := "hi" + string(c)
+s += " and good bye"
+```
+string类型的加操作通过连接各操作数来形成一个新的string
+
