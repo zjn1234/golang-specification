@@ -671,3 +671,88 @@ s += " and good bye"
 ```
 string类型的加操作通过连接各操作数来形成一个新的string
 
+##Comparison operators
+比较操作符比较该操作符的两个操作数，并且会生成一个没有类型的布尔值。
+```
+==    equal
+!=    not equal
+<     less
+<=    less or equal
+>     greater
+>=    greater or equal
+```
+在所有的比较运算中，第一个操作数必须可以赋值给第二个操作数的类型，反之毅然。
+
+相等生比较操作符==和!=适用于可比较的操作数。排序操作符<，<=，>和>=适用于有序的操作数。一些规则和比较的结果定义如下：
+ - 布尔值是可比较的。如果两个布尔值全是true，或者全是false，则他们是相等的。
+ - 整型值是可比较并且有序的，并且按照通常情况比较。
+ - 按照IEEE-754标准定义的，浮点值也是可比较并且有序的。
+ - 复数是可比较的。如果real(u)==real(v)并且imag(u)=image(v)，则两个复数值u和v是相等的。
+ - 字符串值是可以比较的，并且按词法上的字节大小比较。
+ - 指针值是可比较的。如果两个指针值指向相同的变量或者两个指针值都是nil，则这两个指针值是相等的。指向值为0的变量的指针值可能相等，也可以不相等。
+ - channel值可比较。如果两个channel由相同的make调用所创建或者两个channel值都是nil，则这两个channel是相等的。
+ - 接口类型的值是可比较的。如果两个接口值拥有完全相同的动态类型并且完全相同的动态类型值，或者两个接口值全是nil，则这两个接口是相同的。
+ - 一个非接口类型X的值x和一个接口类型T的值t，当类型X的值可比较并且X实现了T时，则x和t是可比较的。如果t的动态类型和X完全相同并且t的动态类型值等于x，则他们是相等的。
+ - 如果结构体的所有字段都可比较，则结构体值是可比较的。如果两个结构体对应的非下划线字段相等，则这两个结构体值是相等的。
+ - 如果数组的值元素类型是可比较的，则数组值是可比较的。如果两个数组对应的元素相等，则这两个数组值是相等的。
+
+两个拥有完全相同动态类型的接口值做比较，如果该动态类型不支持比较，则会造成panic。这种结果不仅仅是对应于直接的接口值比较，而且也对应于比较元素为接口类型的数组，或者拥有接口类型字段的结构体。
+
+slice，map和函数值是不可比较的。可是也有特殊存在，当预声明的标识符是nil的时候，则slice，map和函数值是可比较的。也允许值为nil的指针，channel和接口的比较，他们都遵守上面的规则。
+
+```
+const c = 3 < 4            // c is the untyped boolean constant true
+
+type MyBool bool
+var x, y int
+var (
+	// The result of a comparison is an untyped boolean.
+	// The usual assignment rules apply.
+	b3        = x == y // b3 has type bool
+	b4 bool   = x == y // b4 has type bool
+	b5 MyBool = x == y // b5 has type MyBool
+)
+```
+
+##Logical operators
+逻辑运算符适用于布尔类型的值，并且会生成一个和操作数类型相同的结果。右操作数在某些条件下才会被计算。
+```
+&&    conditional AND    p && q  is  "if p then q else false"
+||    conditional OR     p || q  is  "if p then true else q"
+!     NOT                !p      is  "not p"
+```
+
+##Address operators
+对于一个T类型的操作数x而言，地址操作符&x会生成一个指向x变量的类型为*T的指针值。该操作符的操作数必须是可寻址的，变量，间接指针或者slice索引操作;或者一个可寻址的结构体操作数的字段选择器;又或者是一个可寻址的数组索引操作。组合类型字面量x可寻址是寻址要求的一个例外条件。如果x的计算对造成panic，则对&x的计算也会造成panic
+
+对于一个*T类型的操作数x而言，指针的间接引用*x表示被x指向的类型为T的变量。如果x是nil，则*x操作会造成panic。
+```
+&x
+&a[f(2)]
+&Point{2, 3}
+*p
+*pf(x)
+
+var x *int = nil
+*x   // causes a run-time panic
+&*x  // causes a run-time panic
+```
+
+##Receive operator
+对于channel类型的操作数ch而言，接收操作<-ch的值是接收自channel ch的值。channel方向必须是允许接收的操作，并且接收操作的类型是channel的元素类型。该表达式会一直堵塞到有值可获取的时候。从一个值为nil的channel接收值会造成永久堵塞。如果发送到channel中的值全被接收到，然后关闭该channel，则向该channel执行接收操作会立刻返回，并且生成一个对应类型的0值。
+```
+v1 := <-ch
+v2 = <-ch
+f(<-ch)
+<-strobe  // wait until clock pulse and discard received value
+```
+使用于赋值或者初始化时的接收操作的特殊形式
+```
+x, ok = <-ch
+x, ok := <-ch
+var x, ok = <-ch
+var x, ok T = <-ch
+```
+这些操作会生成一个额外的没有类型的布尔结果，该结果表示是否信息传输成功。如果成功接收到了发送到channel中的数值时，则ok的值是true。当channel关闭后，接收到的值为对应类型的0值，并且ok的值为false。
+
+
