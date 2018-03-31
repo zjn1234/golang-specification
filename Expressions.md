@@ -755,4 +755,119 @@ var x, ok T = <-ch
 ```
 这些操作会生成一个额外的没有类型的布尔结果，该结果表示是否信息传输成功。如果成功接收到了发送到channel中的数值时，则ok的值是true。当channel关闭后，接收到的值为对应类型的0值，并且ok的值为false。
 
+##Conversions
+转换是T(x)形式的表达式。在该表达式中，T是类型名而x是可以被转换成T类型的表达式。
+```
+Conversion = Type "(" Expression [ "," ] ")" .
+```
 
+如果类型的前面有*或者<-，又或者类型已关键字fun开头并且没有结构列表，则当要避免歧义的时候必须用括号前他们括起来:
+```
+*Point(p)        // same as *(Point(p))
+(*Point)(p)      // p is converted to *Point
+<-chan int(c)    // same as <-(chan int(c))
+(<-chan int)(c)  // c is converted to <-chan int
+func()(x)        // function signature func() x
+(func())(x)      // x is converted to func()
+(func() int)(x)  // x is converted to func() int
+func() int(x)    // x is converted to func() int (unambiguous)
+```
+
+一个常量值x,如果x可以被一个T类型的值所表示，则x可以被转换成T类型的值。特殊情况下，我们可以使用将非常量整型值x转换成字符串类型的规则来将常量值x也转换成字符串类型。
+
+常量的转换会生成一个结果为有类型的常量值。
+
+```
+uint(iota)               // iota value of type uint
+float32(2.718281828)     // 2.718281828 of type float32
+complex128(1)            // 1.0 + 0.0i of type complex128
+float32(0.49999999)      // 0.5 of type float32
+float64(-1e-1000)        // 0.0 of type float64
+string('x')              // "x" of type string
+string(0x266c)           // "♬" of type string
+MyString("foo" + "bar")  // "foobar" of type MyString
+string([]byte{'a'})      // not a constant: []byte{'a'} is not a constant
+(*int)(nil)              // not a constant: nil is not a constant, *int is not a boolean, numeric, or string type
+int(1.2)                 // illegal: 1.2 cannot be represented as an int
+string(65.0)             // illegal: 65.0 is not an integer constant
+```
+
+在下面的任意情况下，一个非常量值x可以被转换成T类型：
+ - x可以被赋值给T。
+ - 在忽略结构体字段标签的情况下，x的类型和T类型拥有完全相同的底层类型。
+ - 在忽略结构体字段标签的情况下，x和T不是type定义的指针类型，并且他们的指针基本类型拥有完全相同的底层类型。
+ - x的类型和类型T全是整型或者全是浮点类型。
+ - x的类型和类型T全是复数类型。
+ - x是一个整型数或者是一个byte或者rune类型的slice，并且T是一个字符串类型。
+ - x是字符串类型并且T是一个bytes或者runes类型的slice。
+
+当以转换为目的来比较结构体类型的身份时，结构体标签是会被忽略的：
+```
+type Person struct {
+	Name    string
+	Address *struct {
+		Street string
+		City   string
+	}
+}
+
+var data *struct {
+	Name    string `json:"name"`
+	Address *struct {
+		Street string `json:"street"`
+		City   string `json:"city"`
+	} `json:"address"`
+}
+
+var person = (*Person)(data)  // ignoring tags, the underlying types are identical
+```
+
+数字类型和字符串类型之间的转换拥有特殊的规则。这些转换可能会改变x的表现形式并且会导致运行时开销。除此之外的其它转换只会改变类型，而并不会改变x的表现形式。
+
+没有任何语言上的机制来将指针和整型值相互转换。包unsafe在严格的限制条件下实现了这一功能。
+
+###Conversions between numeric type
+以下规则适用于非常量数字类型的转换：
+ 1. 当转换发生在整型数之间时，如果该值是一个有符号整型值，它的符号位会扩展会隐式的无限精度;如果是无符号整型数，则不会发生扩展。然后便会被截断来满足结果类型的大小。例如，如果`v:=uint16(0x10F0)`，然后`uint32(int8(v))==0xFFFFFFF0`。该转换总是会生成一个有效的值;不存在溢出提示。
+ 2. 当将一个浮点类型的值转换成一个整型值时，小数部分会被忽略（向0方向截断）。
+ 3. 当将一个整型值或者一个浮点值转换成一个浮点类型，或者将一个复数值转换成另一个复数类型时，结果值会被舍入到结果类型所确定的精度。例如，我们可以使用超过IEEE-754指定的32比特精度来保存类型为float32的变量x的值，但是float32(x)表示的是将x的值舍入到32比特精度的值。相似的，x+0.1可以使用超过32比特精度，但是float32(x+0.1)只代表32比特精度。
+
+In all non-constant conversions involving floating-point or complex values, if the result type cannot represent the value the conversion succeeds but the result value is implementation-dependent.
+
+转换成字符串或者自字符串转换
+ 1. 将一个有符号或者无符号的整型值转换成字符串类型会生成一个字符串值，该字符串包含了整型值的utf-8表示。超过有效的unicode表示范围的字符值会被转换成"\UFFFD"。
+```
+string('a')       // "a"
+string(-1)        // "\ufffd" == "\xef\xbf\xbd"
+string(0xf8)      // "\u00f8" == "ø" == "\xc3\xb8"
+type MyString string
+MyString(0x65e5)  // "\u65e5" == "日" == "\xe6\x97\xa5"
+```
+ 2. 将一个bytes类型的slice转换成一个字符串类型时会生成一个字符串，该字符串连续字节是该slice的元素。
+```
+string([]byte{'h', 'e', 'l', 'l', '\xc3', '\xb8'})   // "hellø"
+string([]byte{})                                     // ""
+string([]byte(nil))                                  // ""
+type MyBytes []byte
+string(MyBytes{'h', 'e', 'l', 'l', '\xc3', '\xb8'})  // "hellø"
+```
+ 3. 将一个runes类型的slice转换成字符串类型时会生成一个字符串值，该字符串是将单个rune值转换成的字符串的拼接。
+```
+string([]rune{0x767d, 0x9d6c, 0x7fd4})   // "\u767d\u9d6c\u7fd4" == "白鵬翔"
+string([]rune{})                         // ""
+string([]rune(nil))                      // ""
+type MyRunes []rune
+string(MyRunes{0x767d, 0x9d6c, 0x7fd4})  // "\u767d\u9d6c\u7fd4" == "白鵬翔"
+```
+ 4. 将一个字符串类型的值转换成一个bytes类型的slice时会生成一个slice值，该slice值的连续元素为字符串的各byte值。
+```
+[]byte("hellø")   // []byte{'h', 'e', 'l', 'l', '\xc3', '\xb8'}
+[]byte("")        // []byte{}
+MyBytes("hellø")  // []byte{'h', 'e', 'l', 'l', '\xc3', '\xb8'}
+```
+ 5. 将一个字符串类型的值转换成一个runes类型的slice时会生成一个slice值，该slice值包含了该字符串的每一单个的unicode值。
+```
+[]rune(MyString("白鵬翔"))  // []rune{0x767d, 0x9d6c, 0x7fd4}
+[]rune("")                 // []rune{}
+MyRunes("白鵬翔")           // []rune{0x767d, 0x9d6c, 0x7fd4}
+```
