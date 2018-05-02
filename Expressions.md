@@ -871,3 +871,99 @@ MyBytes("hellø")  // []byte{'h', 'e', 'l', 'l', '\xc3', '\xb8'}
 []rune("")                 // []rune{}
 MyRunes("白鵬翔")           // []rune{0x767d, 0x9d6c, 0x7fd4}
 ```
+
+### Constant expression
+常量表达式只包含常量操作数，他们被计算于编译期间。
+
+没有类型的布尔，数字和字符串常量值可以被合法的使用作操作数。除移位操作外，如果一个二元操作的操作数是不同的常量类型，或者与操作的两边为非布尔类型运算，则结果值类型是出现在运算列表最后的类型;interger, rune, floating-point, complex。例如，一个无类型的interger常量除以一个无类型的complex常量会生成一个没有类型的复数常量。
+
+常量比较运算总是会生成一个无类型的布尔值常量。如果一个常量移位表达式的左操作数是一个无类型的常量，则结果是一个interger常量;否则便是一个和左操作数相同类型的常量，该左操作数必须是一个integer类型。其它所有的应用于无类型常量计算的操作符会生成一个相同类型的无类型常量。
+
+```
+const a = 2 + 3.0          // a == 5.0   (untyped floating-point constant)
+const b = 15 / 4           // b == 3     (untyped integer constant)
+const c = 15 / 4.0         // c == 3.75  (untyped floating-point constant)
+const Θ float64 = 3/2      // Θ == 1.0   (type float64, 3/2 is integer division)
+const Π float64 = 3/2.     // Π == 1.5   (type float64, 3/2. is float division)
+const d = 1 << 3.0         // d == 8     (untyped integer constant)
+const e = 1.0 << 3         // e == 8     (untyped integer constant)
+const f = int32(1) << 33   // illegal    (constant 8589934592 overflows int32)
+const g = float64(2) >> 1  // illegal    (float64(2) is a typed floating-point constant)
+const h = "foo" > "bar"    // h == true  (untyped boolean constant)
+const j = true             // j == true  (untyped boolean constant)
+const k = 'w' + 1          // k == 'x'   (untyped rune constant)
+const l = "hi"             // l == "hi"  (untyped string constant)
+const m = string(k)        // m == "x"   (type string)
+const Σ = 1 - 0.707i       //            (untyped complex constant)
+const Δ = Σ + 2.0e-4       //            (untyped complex constant)
+const Φ = iota*1i - 1/1i   //            (untyped complex constant)
+```
+
+将内建函数complex应用于无类型的integer, rune或者floating-point常量会生成一个无类型的complex常量。
+```
+const ic = complex(0, c)   // ic == 3.75i  (untyped complex constant)
+const iΘ = complex(0, Θ)   // iΘ == 1i     (type complex128)
+```
+
+常量表达式总是会被正确的计算;中间值和常量本身所需要的精度可能会明显的超过语言中声明的类型所支持的精度。例如，以下声明是合法的：
+```
+const Huge = 1 << 100         // Huge == 1267650600228229401496703205376  (untyped integer constant)
+const Four int8 = Huge >> 98  // Four == 4                                (type int8)
+```
+
+常量除法运算或者一个取余运算的除数必须是非0值:
+```
+3.14 / 0.0   // illegal: division by zero
+```
+
+类型化的常量值必须可以被该常量类型所表示。下面的常量表达式是非法的:
+```
+uint(-1)     // -1 cannot be represented as a uint
+int(3.14)    // 3.14 cannot be represented as an int
+int64(Huge)  // 1267650600228229401496703205376 cannot be represented as an int64
+Four * 300   // operand 300 cannot be represented as an int8 (type of Four)
+Four * 100   // product 400 cannot be represented as an int8 (type of Four)
+```
+
+用于一元按位取反操作符^的掩码使用和非常量值一样的规则:无符号常量值的掩码是全1，有符号和无类型的常量掩码值是-1。
+```
+^1         // untyped integer constant, equal to -2
+uint8(^1)  // illegal: same as uint8(-2), -2 cannot be represented as a uint8
+^uint8(1)  // typed uint8 constant, same as 0xFF ^ uint8(1) = uint8(0xFE)
+int8(^1)   // same as int8(-2)
+^int8(1)   // same as -1 ^ int8(1) = -2
+```
+
+实现约束：当计算无类型的常量floating-point或者complext时，编译器会使用四舍五入;这正如[constants]()一节中提到的一样。该四舍五入操作中，integer上下文中floating-point常量表达式可能变的无效，即使使用无效精度来计算的时候可能结果会完整，反过来也是一样的。
+
+# Order of evaluation
+在包一级别中，依赖的初始化决定了变量声明中各初始化表达式的计算顺序。除此之外，计算表达式，赋值或者返回语句操作数，所有的函数/方法调用和通信操作的操作数全是按照从左到右的顺序计算的。
+
+例如，在下面的赋值运算中
+```
+y[f()], ok = g(h(), i()+x[j()], <-c), k()
+```
+
+函数调用和通信发生的顺序是f(),h(), i(), j(), <-c, g()和k()。相比于这些事件而言，对x的索引操作和y的计算操作顺序是未知的。
+```
+a := 1
+f := func() int { a++; return a }
+x := []int{a, f()}            // x may be [1, 2] or [2, 2]: evaluation order between a and f() is not specified
+m := map[int]int{a: 1, a: 2}  // m may be {2: 1} or {2: 2}: evaluation order between the two map assignments is not specified
+n := map[int]int{a: f()}      // n may be {2: 3} or {3: 3}: evaluation order between the key and the value is not specified
+```
+
+在包一级别上，依赖的初始化会覆盖单个初始化表达式从左到右的规则，但是并不会覆盖每个表达式内的操作数计算顺序。
+```
+var a, b, c = f() + v(), g(), sqr(u()) + v()
+
+func f() int        { return c }
+func g() int        { return a }
+func sqr(x int) int { return x*x }
+
+// functions u and v are independent of all other variables and functions
+```
+
+上面的函数调用发生的顺序是u(), sqlr(), v(), f(), v()和g()。
+
+在单个表达式内的floating-point操作会根据操作符的结合性计算。显示的圆括号会更改默认的结合性，从而影响计算。在表达式`x+(y+z)`中，加法运算`y+z`发生于加x之前。
