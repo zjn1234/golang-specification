@@ -115,33 +115,27 @@ new([100]int)[0:50]
 正如数组一样，slice总是一维的，但是可以以数组的数组的形式被组合成更高维度的对象。在数组的数组这种形式中，内部的数组总是拥有相同的长度;在slice的slice（或者数组的slice）这种形式中，内部的slice的长度可以动态改变的。此外，slice的slice(或者数组的slice)中，内部的slice必须被逐一单独初始化。
 
 ## Struct types
-struct是命名元素的集成，这些元素被叫作fields，每一个field都拥有一个名字和类型。field名字可以被显示指定或者隐式指定。在struct内部，非空field的名字必须是独一无二的。
+struct是由多个被称作fields的命名元素所组成的序列，，每一个field都具有名字和类型。field名字可以被显示（标识符列表）或隐式（内嵌field）的指定。在struct内部，非空的field名字必须唯一。
+
 
 ```
-StructType    = "struct" "{" { FieldDecl ";" } "}" .
-FieldDecl     = (IdentifierList Type | EmbeddedField) [ Tag ] .
-EmbeddedField = [ "*" ] TypeName .
-Tag           = string_lit .
-```
-
-```
-// An empty struct.
+// 空结构体.
 struct {}
 
-// A struct with 6 fields.
+// 带有6个field的结构体
 struct {
 	x, y int
 	u float32
-	_ float32  // padding
+	_ float32  // 填充
 	A *[]int
 	F func()
 }
 ```
 
-一个被声明类型但是没有名字的field被称作内嵌式field。内嵌式的field必须被由该类型名字T或者一个指向非接口类型的类型名字*T来指定，并且T本身不能是一个指针类型。该名字作为field名字
+一个有类型但没名字的field被称作内嵌field。内嵌field必须是类型T或者指向非接口类型的指针类型*T，T本身不能是指针类型。内嵌field类型名作field名字
 
 ```
-// A struct with four embedded fields of types T1, *T2, P.T3 and *P.T4
+// 带有四个内嵌field T1, *T2, P.T3 and *P.T4的结构体
 struct {
 	T1        // field name is T1
 	*T2       // field name is T2
@@ -155,15 +149,14 @@ struct {
 
 ```
 struct {
-	T     // conflicts with embedded field *T and *P.T
-	*T    // conflicts with embedded field T and *P.T
-	*P.T  // conflicts with embedded field T and *T
+	T     // 和 *T and *P.T 发生冲突
+	*T    // 和 T and *P.T 发生冲突
+	*P.T  // 和 T and *T 发生冲突
 }
 ```
+如果结构体x中存在内嵌field或者方法f，则x.f是合法的。该field或者方法f被叫作promoted
 
-如果在一个struct中，表示该field或者方法的x.f是合法的[selector]()，则该内嵌式的field或者方法被称作promoted
-
-promoted fields 像变通的struct field一样，但是，在struct的[composite literals]()中他们不能被用作field名字。
+promoted fields在结构体的组合类型中不能用作field的名字，其它方面和结构体中的普通fields没有区别。
 
 ```
 type T int
@@ -172,11 +165,11 @@ type abc struct {
 }
 ```
 
-给予一个struct类型S和一个类型名T，promoted方法如下被包括在struct的方法集中：
- - 如果s包含内嵌式field T，S和*S的方法集都包括接收者为T的promoted方法。*S的方法集同样也包括接收者为*T的promoted方法
+给予一个struct类型S和一个type关键字定义的类型名T，promoted方法集被包括在如下的struct中：
+ - 如果s包含内嵌field T，S和*S的方法集都包括接收者为T的promoted方法。*S的方法集同样也包括接收者为*T的promoted方法
  - 如果S包含一个内嵌式field *T，S和*S的方法集都包括接收者为T或者*T的promoted 方法。
 
-一个field声明可以紧跟着一个可选的字符串字面值标签，该标签会变成对应字段声明中字段的属性。空标签字符串等同于没有标签。该标签可以被[reflection interface]()来获取，并且在[type identity]中扮演重要的角色，但是其它方面它是被忽略的。
+一个field声明可以紧跟着一个可选的字符串标签，该标签会变成对应field声明的属性。空标签字符串等同于没有标签。标签内容可以通过反射接口来获取，标签在类型的身份确认中扮演重要的角色，但是其它方面是被忽略的。
 
 ```
 struct {
